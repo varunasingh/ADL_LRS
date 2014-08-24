@@ -76,9 +76,10 @@ class ActivityManager():
     def populate_definition(self, act_def, act_created):
         # return t/f if you can create the def from type, interactionType and moreInfo if the activity already
         # doesn't have a definition
+	# if not found return {} for JSONfields as per Activity Model
         act_def_created = self.save_activity_definition_to_db(act_def.get('type', ''), act_def.get('interactionType', ''),
-            act_def.get('moreInfo', ''), act_def.get('name', ''), act_def.get('description', ''),
-            act_def.get('correctResponsesPattern', ''), act_def.get('extensions', ''))
+            act_def.get('moreInfo', ''), act_def.get('name', {}), act_def.get('description', {}),
+            act_def.get('correctResponsesPattern', {}), act_def.get('extensions', {}))
 
         # If the activity had already existed and lrs auth is off or user has authority to update it
         if not act_created: 
