@@ -800,7 +800,8 @@ class Statement(models.Model):
     full_statement = JSONField()
     def object_return(self, lang=None, format='exact'):
         if format == 'exact':
-            return self.full_statement
+	    #returning JSON dump to avoid /" hurting in full_statement in Statement
+	    return json.dumps(self.full_statement)
         ret = {}
         ret['id'] = self.statement_id
         ret['actor'] = self.actor.get_agent_json(format)
