@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "umlrsbase.html" %}
 {% block content %}
 <p>Enter JSON here to validate:</p>
 {% if error_message %}
@@ -14,7 +14,7 @@
 	<br>
 </p>
 {% endif %}
-<form action="{% url lrs.views.stmt_validator %}" method="post">
+<form action="{% url 'lrs.views.stmt_validator' %}" method="post">
 	{% csrf_token %}
 	<div class="control-group">
 	    <label class="control-label" for="Data">Data</label>

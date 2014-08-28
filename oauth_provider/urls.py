@@ -1,4 +1,4 @@
-from django.conf.urls.defaults import *
+from django.conf.urls import *
 
 from views import request_token, user_authorization, access_token, oauth_home
 

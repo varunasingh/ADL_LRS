@@ -3,7 +3,7 @@ import email
 import json
 import urllib
 from collections import defaultdict
-from django.http import MultiPartParser
+from django.http.multipartparser import MultiPartParser
 from django.utils.translation import ugettext as _
 from django.core.cache import get_cache
 from lrs.util import etag, convert_to_dict, convert_post_body_to_dict

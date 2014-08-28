@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "umlrsbase.html" %}
 {% block title %}ADL LRS Registration{% endblock title %}
 {% block heading %}ADL LRS Registration{% endblock heading %}
 {% block content %}
@@ -27,7 +27,7 @@
     </div>
 {% endfor %}
 
-<form class="form-horizontal" action="{% url lrs.views.register %}" method="post">
+<form class="form-horizontal" action="{% url 'lrs.views.register' %}" method="post">
 	{% csrf_token %}
   {% include 'table_form.html' %}
   <div class="control-group">

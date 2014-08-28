@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "umlrsbase.html" %}
 {% block title %}Registraton Success{% endblock title %}
 {% block heading %}Thanks{% endblock heading %}
 {% block content %} 
@@ -18,6 +18,6 @@
 </div>
 <br/>
 <div>
-    <a class="btn btn-primary" href="{% url lrs.views.home %}">Home</a>
+    <a class="btn btn-primary" href="{% url 'lrs.views.home' %}">Home</a>
 </div>
 {% endblock content %}
