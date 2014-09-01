@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import render_to_response
+from django.shortcuts import render_to_response, render #added render if needed
 from django.template import RequestContext
 from django.utils.decorators import decorator_from_middleware
 from django.views.decorators.csrf import csrf_protect
@@ -17,6 +17,7 @@ from django.views.decorators.http import require_http_methods
 from lrs import forms, models, exceptions
 from lrs.util import req_validate, req_parse, req_process, XAPIVersionHeaderMiddleware, accept_middleware, StatementValidator
 from oauth_provider.consts import ACCEPTED, CONSUMER_STATES
+from django.views.decorators.csrf import csrf_exempt #Added to solve problem when upgrading to Django 1.6
 
 # This uses the lrs logger for LRS specific information
 logger = logging.getLogger(__name__)
@@ -338,6 +339,7 @@ def logout_view(request):
 def statements_more(request, more_id):
     return handle_request(request, more_id)
 
+@csrf_exempt  #to temporarily fix Django 1.6 upgrade issue
 @require_http_methods(["PUT","GET","POST", "HEAD"])
 @decorator_from_middleware(XAPIVersionHeaderMiddleware.XAPIVersionHeader)
 def statements(request):
