@@ -897,6 +897,28 @@ class Statement(models.Model):
             ret['attachments'] = [a.object_return(lang) for a in self.attachments.all()]
         return ret
 
+    def get_r_duration(self):	#added by Varuna
+        try:
+	    #eg: PT0H2M22S
+	    hourstart="PT"
+ 	    hourend="H"
+	    minutestart="H"
+	    minuteend="M"
+	    secondstart="M"
+	    secondend="S"
+	    hours=int(self.result_duration[self.result_duration.find(hourstart)+len(hourstart):self.result_duration.find(hourend)])
+	    minutes=int(self.result_duration[self.result_duration.find(minutestart)+len(minutestart):self.result_duration.find(minuteend)])
+	    seconds=int(self.result_duration[self.result_duration.find(secondstart)+len(secondstart):self.result_duration.find(secondend)])
+	    duration_seconds=seconds + minutes*60 + hours*60*60
+	    duration=dt.timedelta(seconds=duration_seconds)
+	    #duration=datetime(int(hours), int(minutes), int(seconds))
+	    return duration
+            #return self.result_duration
+        except Exception, e:
+	    print("EXCEPTION")
+	    print(e)
+            return "-"
+
     def unvoid_statement(self):
         Statement.objects.filter(statement_id=self.object_statementref.ref_id).update(voided=False)        
 
