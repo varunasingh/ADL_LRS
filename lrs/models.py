@@ -512,7 +512,7 @@ class Activity(models.Model):
 
     def get_a_name(self):
         try:
-            return self.activity_definition_name.get('en-US')
+            return self.activity_definition_name.get('en-US').rstrip('\n') #added to strip new line to it works okay with usage in tables in html
         except:
             return self.activity_id
 
