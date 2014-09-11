@@ -515,6 +515,12 @@ class Activity(models.Model):
             return self.activity_definition_name.get('en-US').rstrip('\n') #added to strip new line to it works okay with usage in tables in html
         except:
             return self.activity_id
+	
+    def get_a_id(self):	#added by Varuna Singh to get the lesson name and chapter , etc. 
+	try:
+	    return self.activity_id.replace("http://www.ustadmobile.com/xapi/","").replace("http://www.ustadmobile.com/tincan/","")
+	except:
+	    return self.activity_id
 
     def __unicode__(self):
         return json.dumps(self.object_return())

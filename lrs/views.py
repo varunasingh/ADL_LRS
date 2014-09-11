@@ -17,7 +17,7 @@ from django.views.decorators.http import require_http_methods
 from lrs import forms, models, exceptions
 from lrs.util import req_validate, req_parse, req_process, XAPIVersionHeaderMiddleware, accept_middleware, StatementValidator
 from oauth_provider.consts import ACCEPTED, CONSUMER_STATES
-from django.views.decorators.csrf import csrf_exempt #Added to solve problem when upgrading to Django 1.6 and ignore csrf on statements behind svr2's proxy (apache)
+from django.views.decorators.csrf import csrf_exempt #Added to solve problem when upgrading to Django 1.6
 
 # This uses the lrs logger for LRS specific information
 logger = logging.getLogger(__name__)
