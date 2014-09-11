@@ -512,13 +512,14 @@ class Activity(models.Model):
 
     def get_a_name(self):
         try:
-            return self.activity_definition_name.get('en-US').rstrip('\n') #added to strip new line to it works okay with usage in tables in html
+	    print(self.activity_definition_name.get('en-US').rstrip('\n').replace("\n",""))
+            return self.activity_definition_name.get('en-US').rstrip('\n').replace("\n","") #added to strip new line to it works okay with usage in tables in html
         except:
             return self.activity_id
 	
     def get_a_id(self):	#added by Varuna Singh to get the lesson name and chapter , etc. 
 	try:
-	    return self.activity_id.replace("http://www.ustadmobile.com/xapi/","").replace("http://www.ustadmobile.com/tincan/","")
+	    return self.activity_id.replace("http://www.ustadmobile.com/xapi/","").replace("http://www.ustadmobile.com/tincan/","").replace("http://www.ustadmobile.com/","").replace("http://www.testdomain.com/tincan/","").rstrip('\n')
 	except:
 	    return self.activity_id
 
