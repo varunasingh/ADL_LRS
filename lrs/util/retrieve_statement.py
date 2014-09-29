@@ -181,7 +181,8 @@ def initial_cache_return(stmt_list, stored, limit, language, format, attachments
 
     # Return first page of results
     if format == 'exact':
-        result = '{"statements": [%s], "more": "%s"}' % (",".join([stmt.full_statement for stmt in \
+	#Converting dict to string to avoid TypeError (Varuna Singh 29092914
+        result = '{"statements": [%s], "more": "%s"}' % (",".join([str(stmt.full_statement) for stmt in \
                 Statement.objects.filter(id__in=stmt_pager.page(1).object_list).order_by(stored)]), MORE_ENDPOINT + cache_key)
     else:
         result['statements'] = [stmt.object_return(language, format) for stmt in \
