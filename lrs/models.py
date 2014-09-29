@@ -1,4 +1,5 @@
 import json
+import pickle
 import urllib
 import urlparse
 import datetime as dt
@@ -16,6 +17,10 @@ from .exceptions import IDNotFoundError, ParamError
 from oauth_provider.managers import TokenManager, ConsumerManager
 from oauth_provider.consts import KEY_SIZE, SECRET_SIZE, CONSUMER_KEY_SIZE, CONSUMER_STATES,\
                    PENDING, VERIFIER_SIZE, MAX_URL_LENGTH
+from uploadeXe.models import Package as Block, Course
+from organisation.models import User_Organisations
+from allclass.models import Allclass
+from school.models import School
 
 ADL_LRS_STRING_KEY = 'ADL_LRS_STRING_KEY'
 
@@ -512,7 +517,6 @@ class Activity(models.Model):
 
     def get_a_name(self):
         try:
-	    print(self.activity_definition_name.get('en-US').rstrip('\n').replace("\n",""))
             return self.activity_definition_name.get('en-US').rstrip('\n').replace("\n","") #added to strip new line to it works okay with usage in tables in html
         except:
             return self.activity_id
@@ -561,6 +565,30 @@ class StatementContextActivity(models.Model):
         ret[self.key] = {}
         ret[self.key] = [a.object_return(lang, format) for a in self.context_activity.all()]
         return ret
+
+    #Added this custom save for saving and figuring out course. 
+    #Varuna Singh 24092014
+    def save(self, *args, **kwargs):
+        try:
+            super(StatementContextActivity, self).save(*args, **kwargs)
+        except:
+	    print("SOMETHING WENT WRONG IN StatementContextActivity") 
+	try:
+            #print("Assigining Course")
+	    if self.key == "parent":
+		statementinfo=StatementInfo.objects.get(statement=self.statement)
+		for ca in self.context_activity.all():
+			ca_id=ca.activity_id.strip("/")
+            		st_courseid=ca_id.rsplit('/',1)[1]
+            		st_tincanid=ca_id.rsplit('/',1)[0]
+	 		course=Course.objects.filter(id=st_courseid, tincanid=st_tincanid)[0]
+			if course:
+			    statementinfo.course=course
+			    break
+            statementinfo.save()
+        except:
+            print("EXCEPTION IN ASSIGNING COURSE")
+
 
 class ActivityState(models.Model):
     state_id = models.CharField(max_length=MAX_URL_LENGTH)
@@ -922,8 +950,8 @@ class Statement(models.Model):
 	    return duration
             #return self.result_duration
         except Exception, e:
-	    print("EXCEPTION")
-	    print(e)
+	    #print("EXCEPTION. No duration or it could not be processed.")
+	    #print(e)
             return "-"
 
     def unvoid_statement(self):
@@ -956,3 +984,139 @@ class Statement(models.Model):
                 self.object_statementref.delete()
 
         super(Statement, self).delete(*args, **kwargs)
+    
+    #Added by Varuna Singh 24092014 for block assignment 
+    #of statements
+    def save(self, *args, **kwargs):
+  	try:
+	    super(Statement, self).save(*args, **kwargs)
+	    #print("Creating the statement info")
+	    #print(self.get_r_duration())
+  	    if self.get_r_duration() == "-":
+		statementinfo = StatementInfo.objects.create\
+			(statement=self)
+	    else:
+	        statementinfo = StatementInfo.objects.create(statement=self,\
+					 duration=self.get_r_duration())
+	    statementinfo.save()
+	except Exception, e:
+	    print("EXCEPTION IN CREATING STATEMENTINFO")
+	    print(e)
+
+	try:
+	#if True:
+	    #print("Assigning blocks")
+	    activityid=self.object_activity.activity_id
+	    #removing trailing and leading slash ("/")
+	    activityid=activityid.strip("/")
+	    st_elpid=activityid.rsplit('/',1)[1]
+	    st_tincanid=activityid.rsplit('/',1)[0]
+	    #Block only sets block to statement info for blocks within its organisations. A user 
+	    #Cannot make statements for other organisations
+	    organisation=User_Organisations.objects.get(user_userid=self.user).organisation_organisationid;
+	    block=Block.objects.filter(elpid=st_elpid, tincanid=st_tincanid, \
+			publisher__in=User.objects.filter(\
+			    pk__in=User_Organisations.objects.filter(\
+				organisation_organisationid=organisation\
+					).values_list('user_userid', flat=True)))[0]
+	    
+	    statementinfo.block=block;
+	    statementinfo.save()
+	except:
+	#else:
+	    print("EXCEPTION IN ASSIGNING BLOCK")
+	try:
+	    print("Starting Course hunt")
+	    #We have to check if parent is set. If it isn;t, 
+	    #We thenget the user's last launched activity.
+  	    statement_json=json.loads(self.full_statement)
+	    try:
+	    	context_parent = statement_json[u'context'][u'contextActivities'][u'parent']
+	    except:
+		#print("Could not determing the context, it is not present.")
+		print("Finding course by previous launch entry")
+		last_launched_statement=Statement.objects.filter(user=self.user, verb__display__contains='launched').latest("timestamp")
+		last_launched_statementinfo = StatementInfo.objects.get(statement=last_launched_statement)
+		course=last_launched_statementinfo.course
+		statementinfo.course=course
+		statementinfo.save()
+		
+	    else:
+	    	print(context_parent)
+	    	context=context_parent[0]['id']
+ 	    	context=context.strip('/')
+	    	st_courseid=context.rsplit('/',1)[1]
+	    	st_tincanid=context.rsplit('/',1)[0]
+	    	course=Course.objects.filter(id=st_courseid, tincanid=st_tincanid)[0]
+            	if course:
+	    	    statementinfo.course=course
+	    
+	except:
+	    print("EXCEPTION. COULD NOT FIGURE OUT COURSE")
+	
+	try:
+	#if True:
+	    print("Trying to assign class and school to statement")
+	    allclasses_from_statement = statementinfo.course.allclasses.all()
+	    for allclass in allclasses_from_statement:
+		if self.user in allclass.students.all():
+		    statementinfo.allclass=allclass
+		    statementinfo.school=allclass.school
+		    statementinfo.save()
+		    break
+	except:
+	#else:
+	    print("EXCEPTION. Could NOT ASSIGN Class or School to Statement")
+	try:
+	    print("Assigning user to statementinfo")
+	    statementinfo.user=self.user
+	    statementinfo.save()
+	except:
+	    print("EXCEPTION. Could NOT ASSIGN USER to Statement INFO")
+
+
+	     
+	#print("Assigining Course in StatementContextActivity")
+
+class TimeDeltaField(models.Field):
+    """Custom model field to store python native datetime.timedelta
+    object in database, in serialized form.
+    """
+    __metaclass__ = models.SubfieldBase
+
+    def __init__(self, *args, **kwargs):
+        # Set the max_length to something long enough to store the data
+        # in string format.
+        kwargs['max_length'] = 200
+
+        # Make sure the default specified is also serialized, else the
+        # objects own string representation would be used.
+        if 'default' in kwargs:
+            kwargs['default'] = pickle.dumps(kwargs['default'])
+
+        super(TimeDeltaField, self).__init__(*args, **kwargs)
+
+    def get_internal_type(self):
+        # Store the serialized data as the default 'CharField' type in
+        # the database.
+        return 'CharField'
+
+    def to_python(self, value):
+        if isinstance(value, basestring):
+            # De-Serialize into timedelta.
+            return pickle.loads(str(value))
+        return value
+
+    def get_prep_value(self, value):
+        # Serialize the object.
+        return pickle.dumps(value)
+
+class StatementInfo(models.Model):
+    statement = models.OneToOneField(Statement)
+    duration = TimeDeltaField(default=dt.timedelta(days=0))
+    course = models.ForeignKey(Course, null=True)
+    block = models.ForeignKey(Block, null=True)
+    allclass = models.ForeignKey(Allclass, null=True)
+    #allclass = models.ManyToMany(Allclass, null=True)
+    school = models.ForeignKey(School, null=True)
+    user = models.ForeignKey(User, null=True)
