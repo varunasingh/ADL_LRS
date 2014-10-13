@@ -953,6 +953,21 @@ class Statement(models.Model):
 	    #print("EXCEPTION. No duration or it could not be processed.")
 	    #print(e)
             return "-"
+    def get_course(self): #Added by Varuna
+	try:
+	    statementinfo=StatementInfo.objects.get(statement=self)
+	    return statementinfo.course
+	except Exception, e:
+	    print(e)
+	    return "-"
+
+    def get_block(self): #Added by Varuna
+	try:
+	    statementinfo=StatementInfo.objects.get(statement=self)
+	    return statementinfo.block
+	except Exception, e:
+	    print(e)
+	    return "-"
 
     def unvoid_statement(self):
         Statement.objects.filter(statement_id=self.object_statementref.ref_id).update(voided=False)        
@@ -1119,4 +1134,5 @@ class StatementInfo(models.Model):
     allclass = models.ForeignKey(Allclass, null=True)
     #allclass = models.ManyToMany(Allclass, null=True)
     school = models.ForeignKey(School, null=True)
+    #school = models.ManyToMany(School, null=True)
     user = models.ForeignKey(User, null=True)
