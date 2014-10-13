@@ -1006,7 +1006,6 @@ class Statement(models.Model):
   	try:
 	    super(Statement, self).save(*args, **kwargs)
 	    #print("Creating the statement info")
-	    #print(self.get_r_duration())
   	    if self.get_r_duration() == "-":
 		statementinfo = StatementInfo.objects.create\
 			(statement=self)
@@ -1018,22 +1017,30 @@ class Statement(models.Model):
 	    print("EXCEPTION IN CREATING STATEMENTINFO")
 	    print(e)
 
-	try:
-	#if True:
-	    #print("Assigning blocks")
+	try: #print("Assigning blocks")
 	    activityid=self.object_activity.activity_id
 	    #removing trailing and leading slash ("/")
 	    activityid=activityid.strip("/")
 	    st_elpid=activityid.rsplit('/',1)[1]
 	    st_tincanid=activityid.rsplit('/',1)[0]
 	    #Block only sets block to statement info for blocks within its organisations. A user 
+	    #Afghan Litaracy specific check and fix:
+	    again_st_tincanid=st_tincanid.rsplit('/',1)[1]
+
 	    #Cannot make statements for other organisations
 	    organisation=User_Organisations.objects.get(user_userid=self.user).organisation_organisationid;
-	    block=Block.objects.filter(elpid=st_elpid, tincanid=st_tincanid, \
+	    try:
+	        block=Block.objects.filter(elpid=st_elpid, tincanid=st_tincanid, \
 			publisher__in=User.objects.filter(\
 			    pk__in=User_Organisations.objects.filter(\
 				organisation_organisationid=organisation\
 					).values_list('user_userid', flat=True)))[0]
+	    except:
+		block=Block.objects.filter(name=again_st_tincanid, \
+                            publisher__in=User.objects.filter(\
+                                pk__in=User_Organisations.objects.filter(\
+                                    organisation_organisationid=organisation\
+                                            ).values_list('user_userid', flat=True)))[0]
 	    
 	    statementinfo.block=block;
 	    statementinfo.save()
@@ -1050,11 +1057,20 @@ class Statement(models.Model):
 	    except:
 		#print("Could not determing the context, it is not present.")
 		print("Finding course by previous launch entry")
-		last_launched_statement=Statement.objects.filter(user=self.user, verb__display__contains='launched').latest("timestamp")
-		last_launched_statementinfo = StatementInfo.objects.get(statement=last_launched_statement)
-		course=last_launched_statementinfo.course
-		statementinfo.course=course
-		statementinfo.save()
+		try:
+		    last_launched_statement=Statement.objects.filter(user=self.user, verb__display__contains='launched').latest("timestamp")
+		    last_launched_statementinfo = StatementInfo.objects.get(statement=last_launched_statement)
+	    	except:
+		    print("No launch query, finding course by assigned blocks")
+                    course=Course.objects.get(packages=block)
+                    print("Courses:")
+                    print(course)
+                    statementinfo.course=course
+                    statementinfo.save()
+		else:
+		    course=last_launched_statementinfo.course
+		    statementinfo.course=course
+		    statementinfo.save()
 		
 	    else:
 	    	print(context_parent)
