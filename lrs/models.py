@@ -1018,14 +1018,39 @@ class Statement(models.Model):
 	    print(e)
 
 	try: #print("Assigning blocks")
-	    activityid=self.object_activity.activity_id
-	    #removing trailing and leading slash ("/")
-	    activityid=activityid.strip("/")
-	    st_elpid=activityid.rsplit('/',1)[1]
-	    st_tincanid=activityid.rsplit('/',1)[0]
-	    #Block only sets block to statement info for blocks within its organisations. A user 
+	#if True:
+	    if self.verb.get_display() == "experienced":
+	        activityid=self.object_activity.activity_id
+	    	#removing trailing and leading slash ("/")
+	    	activityid=activityid.strip("/")
+	    	st_elpid=activityid.rsplit('/',2)[1]
+	    	st_tincanid=activityid.rsplit('/',2)[0]
+	    	#Block only sets block to statement info for blocks within its organisations. A user 
+	    elif self.verb.get_display() == "launched":
+		activityid=self.object_activity.activity_id
+		st_elpid=activityid.rsplit('/',1)[1]
+		st_tincanid=activityid.rsplit('/',1)[0]
+		print(st_elpid)
+		print(st_tincanid)
+		print("Launched")
+		
+	    else:
+	   	print("Not experienced..")
+		try:
+		    context_parent = statement_json[u'context'][u'contextActivities'][u'parent']
+		except:
+		    print("No context parent found in non experienced statement")
+		else:
+		    context=context_parent[0]['id']
+		    print(context)
+		    st_elpid=context.rsplit("/",2)[1]
+		    st_tincanid=context.rsplit("/",2)[0]
+
 	    #Afghan Litaracy specific check and fix:
-	    again_st_tincanid=st_tincanid.rsplit('/',1)[1]
+ 	    try:
+	        again_st_tincanid=st_tincanid.rsplit('/',1)[1]
+	    except:
+		again_st_tincanid="-"
 
 	    #Cannot make statements for other organisations
 	    organisation=User_Organisations.objects.get(user_userid=self.user).organisation_organisationid;
@@ -1036,6 +1061,7 @@ class Statement(models.Model):
 				organisation_organisationid=organisation\
 					).values_list('user_userid', flat=True)))[0]
 	    except:
+		print("Block not found. Trying afghan literacy check..")
 		block=Block.objects.filter(name=again_st_tincanid, \
                             publisher__in=User.objects.filter(\
                                 pk__in=User_Organisations.objects.filter(\
@@ -1056,21 +1082,30 @@ class Statement(models.Model):
 	    	context_parent = statement_json[u'context'][u'contextActivities'][u'parent']
 	    except:
 		#print("Could not determing the context, it is not present.")
-		print("Finding course by previous launch entry")
-		try:
-		    last_launched_statement=Statement.objects.filter(user=self.user, verb__display__contains='launched').latest("timestamp")
-		    last_launched_statementinfo = StatementInfo.objects.get(statement=last_launched_statement)
-	    	except:
-		    print("No launch query, finding course by assigned blocks")
-                    course=Course.objects.get(packages=block)
+		if self.verb.get_display() == "launched":
+		    print("Statement is launched. Trying to check for courses with block assigned.")
+		    course=Course.objects.get(packages=block)
                     print("Courses:")
                     print(course)
                     statementinfo.course=course
                     statementinfo.save()
+
 		else:
-		    course=last_launched_statementinfo.course
-		    statementinfo.course=course
-		    statementinfo.save()
+		    print("Finding course by previous launch entry")
+		    try:
+		        last_launched_statement=Statement.objects.filter(user=self.user, verb__display__contains='launched').latest("timestamp")
+		        last_launched_statementinfo = StatementInfo.objects.get(statement=last_launched_statement)
+	    	    except:
+		        print("No launch query, finding course by assigned blocks")
+                        course=Course.objects.get(packages=block)
+                        print("Courses:")
+                        print(course)
+                        statementinfo.course=course
+                        statementinfo.save()
+		    else:
+		        course=last_launched_statementinfo.course
+		        statementinfo.course=course
+		        statementinfo.save()
 		
 	    else:
 	    	print(context_parent)
@@ -1109,6 +1144,9 @@ class Statement(models.Model):
 	     
 	#print("Assigining Course in StatementContextActivity")
 
+"""Custom model field to store python native datetime.timedelta
+    object in database, in serialized form.
+"""
 class TimeDeltaField(models.Field):
     """Custom model field to store python native datetime.timedelta
     object in database, in serialized form.
@@ -1142,6 +1180,10 @@ class TimeDeltaField(models.Field):
         # Serialize the object.
         return pickle.dumps(value)
 
+"""
+Statement Info is the extra bits of info for UMCloud relationships
+as a statement comes in.
+"""
 class StatementInfo(models.Model):
     statement = models.OneToOneField(Statement)
     duration = TimeDeltaField(default=dt.timedelta(days=0))
