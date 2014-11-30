@@ -463,6 +463,8 @@ def handle_request(request, more_id=None):
     try:
         r_dict = req_parse.parse(request, more_id)
         path = request.path.lower()
+	print("Testing this:")
+	print(r_dict)
 
         if path.endswith('/'):
             path = path.rstrip('/')

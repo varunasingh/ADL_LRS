@@ -517,8 +517,17 @@ class Activity(models.Model):
 
     def get_a_name(self):
         try:
-            return self.activity_definition_name.get('en-US').rstrip('\n').replace("\n","") #added to strip new line to it works okay with usage in tables in html
+  	    o = self.activity_definition_name.get('en-US').rstrip('\n').replace("\n","")
+	    #print(o)
+	    #return o
+	    p=json.dumps(o)
+	    q = p.replace("\u00","\\x").replace('"','')
+	    #print(q)
+	    return q
+            #return self.activity_definition_name.get('en-US').rstrip('\n').replace("\n","") 
+	    #added to strip new line to it works okay with usage in tables in html
         except:
+	    print("returning id instead")
             return self.activity_id
 	
     def get_a_id(self):	#added by Varuna Singh to get the lesson name and chapter , etc. 
@@ -931,6 +940,10 @@ class Statement(models.Model):
         if self.attachments.all():
             ret['attachments'] = [a.object_return(lang) for a in self.attachments.all()]
         return ret
+    
+    def get_statement_text(self):  #Added by Varuna
+        return self.full_statement
+
 
     def get_r_duration(self):	#added by Varuna
         try:
@@ -1017,8 +1030,7 @@ class Statement(models.Model):
 	    print("EXCEPTION IN CREATING STATEMENTINFO")
 	    print(e)
 
-	try: #print("Assigning blocks")
-	#if True:
+	try:
 	    if self.verb.get_display() == "experienced":
 	        activityid=self.object_activity.activity_id
 	    	#removing trailing and leading slash ("/")
@@ -1030,25 +1042,26 @@ class Statement(models.Model):
 		activityid=self.object_activity.activity_id
 		st_elpid=activityid.rsplit('/',1)[1]
 		st_tincanid=activityid.rsplit('/',1)[0]
-		print(st_elpid)
-		print(st_tincanid)
-		print("Launched")
+		#print(st_elpid)
+		#print(st_tincanid)
 		
 	    else:
-	   	print("Not experienced..")
 		try:
 		    context_parent = statement_json[u'context'][u'contextActivities'][u'parent']
 		except:
-		    print("No context parent found in non experienced statement")
+		    #("No context parent found in non experienced statement")
+		    pass
 		else:
 		    context=context_parent[0]['id']
-		    print(context)
 		    st_elpid=context.rsplit("/",2)[1]
 		    st_tincanid=context.rsplit("/",2)[0]
+		    #print(st_tincanid)
+		    #print(st_elpid)
 
 	    #Afghan Litaracy specific check and fix:
  	    try:
-	        again_st_tincanid=st_tincanid.rsplit('/',1)[1]
+		again_st_tincanid=activityid.rsplit('/',2)[1]
+	        #again_st_tincanid=st_tincanid.rsplit('/',1)[1]
 	    except:
 		again_st_tincanid="-"
 
@@ -1060,13 +1073,24 @@ class Statement(models.Model):
 			    pk__in=User_Organisations.objects.filter(\
 				organisation_organisationid=organisation\
 					).values_list('user_userid', flat=True)))[0]
+		print("Block part of user's organisation.")
 	    except:
-		print("Block not found. Trying afghan literacy check..")
-		block=Block.objects.filter(name=again_st_tincanid, \
+		try:
+		    block=Block.objects.filter(name=again_st_tincanid, \
                             publisher__in=User.objects.filter(\
                                 pk__in=User_Organisations.objects.filter(\
                                     organisation_organisationid=organisation\
-                                            ).values_list('user_userid', flat=True)))[0]
+                                        ).values_list('user_userid', flat=True)))[0]
+		    print("Block got from name search.")
+		except:
+		    afghanorganisation = Course.objects.get(name="Afghan-Literacy").organisation
+		    print(again_st_tincanid)
+		    block=Block.objects.filter(name=again_st_tincanid,\
+			publisher__in=User.objects.filter(\
+			    pk__in=User_Organisations.objects.filter(\
+				organisation_organisationid=afghanorganisation\
+				    ).values_list('user_userid', flat=True)))[0]
+		    print("Block got from afghan literacy course")
 	    
 	    statementinfo.block=block;
 	    statementinfo.save()
@@ -1074,41 +1098,118 @@ class Statement(models.Model):
 	#else:
 	    print("EXCEPTION IN ASSIGNING BLOCK")
 	try:
-	    print("Starting Course hunt")
 	    #We have to check if parent is set. If it isn;t, 
 	    #We thenget the user's last launched activity.
   	    statement_json=json.loads(self.full_statement)
 	    try:
 	    	context_parent = statement_json[u'context'][u'contextActivities'][u'parent']
 	    except:
+		
 		#print("Could not determing the context, it is not present.")
-		if self.verb.get_display() == "launched":
+		if self.verb.get_display() == "launched": #Every launched statement SHOULD have context.
 		    print("Statement is launched. Trying to check for courses with block assigned.")
+		    organisation=User_Organisations.objects.get(\
+			user_userid=self.user).organisation_organisationid;
+
+		    try:
+			afghancourse=Course.objects.get(name="Afghan-Literacy")
+		    
+                        if statementinfo.block in afghancourse.packages.all():
+                            statementinfo.course=afghancourse
+                            statementinfo.save()
+			else:
+			    courses=Course.objects.filter(organisation=organisation)
+                            for everycourse in courses:
+                                if statementinfo.block in everycourse.packages.all():
+                                    statementinfo.course=everycourse
+                                    statementinfo.save()
+                                    break
+
+		    except:
+	            	courses=Course.objects.filter(organisation=organisation)
+		    	for everycourse in courses:
+			    if statementinfo.block in everycourse.packages.all():
+			    	statementinfo.course=everycourse
+				statementinfo.save()
+			    	break
+		    """
 		    course=Course.objects.get(packages=block)
                     print("Courses:")
                     print(course)
                     statementinfo.course=course
                     statementinfo.save()
+		    """
 
-		else:
+	        else:
 		    print("Finding course by previous launch entry")
 		    try:
-		        last_launched_statement=Statement.objects.filter(user=self.user, verb__display__contains='launched').latest("timestamp")
-		        last_launched_statementinfo = StatementInfo.objects.get(statement=last_launched_statement)
+		    	last_launched_statement=Statement.objects.filter(\
+			user=self.user, verb__display__contains='launched'\
+				    ).latest("timestamp")
+		        last_launched_statementinfo = StatementInfo.objects.get(\
+				statement=last_launched_statement)
 	    	    except:
 		        print("No launch query, finding course by assigned blocks")
+			try:
+                            afghancourse=Course.objects.get(name="Afghan-Literacy")
+                            if statementinfo.block in afghancourse.packages.all():
+                            	statementinfo.course=afghancourse
+                            	statementinfo.save()
+                        except:
+                            courses=Course.objects.filter(organisation=organisation)
+                            for everycourse in courses:
+                            	if statementinfo.block in everycourse.packages.all():
+                                    statementinfo.course=everycourse
+                                    statementinfo.save()
+                                    break
+
+		  	"""
                         course=Course.objects.get(packages=block)
                         print("Courses:")
                         print(course)
                         statementinfo.course=course
                         statementinfo.save()
+			"""
 		    else:
-		        course=last_launched_statementinfo.course
-		        statementinfo.course=course
-		        statementinfo.save()
-		
-	    else:
-	    	print(context_parent)
+			try:
+			    llcourse=last_launched_statementinfo.course
+			except:
+			
+			    if llcourse:
+			        if statementinfo.block in llcourse.packages.all():
+			            print("Last Launched statement is of the same course..")
+		                    course=last_launched_statementinfo.course
+		                    statementinfo.course=course
+		                    statementinfo.save()
+			else:
+			    try:
+                                afghancourse=Course.objects.get(name="Afghan-Literacy")
+			    except:
+				print("Afghan Literacy couse does not exist")
+			    if afghancourse:
+                                if statementinfo.block in afghancourse.packages.all():
+                            	    statementinfo.course=afghancourse
+                            	    statementinfo.save()
+				else:
+				    courses=Course.objects.filter(organisation=organisation)
+                                    for everycourse in courses:
+                                        if statementinfo.block in everycourse.packages.all():
+                                            statementinfo.course=everycourse
+                                            statementinfo.save()
+                                            break
+
+			    else:
+                            	courses=Course.objects.filter(organisation=organisation)
+                        	for everycourse in courses:
+                                    if statementinfo.block in everycourse.packages.all():
+                                	statementinfo.course=everycourse
+                                	statementinfo.save()
+                                	break
+
+			    
+
+	    else: #If context is present..
+	    	#print(context_parent)
 	    	context=context_parent[0]['id']
  	    	context=context.strip('/')
 	    	st_courseid=context.rsplit('/',1)[1]
