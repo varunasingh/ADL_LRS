@@ -149,11 +149,25 @@ def server_validate_statement_object(stmt_object, auth):
                     activity_def = activity.object_return()['definition']
                 except KeyError, e:
                     activity_def = {}
+	
+		"""
+		print("activity_def: ")
+		print(activity_def)
+		print("stmt_object(def)")
+		print(stmt_object['definition'])
+	 	"""
 
+
+		###DISABLED by Varuna Singh. 30th November 2014 Updated LRS Code Does
+		### Not include this in Validation. 
+		### It also causes problems if the data is unicoded and is
+		### incorrectly related. (not equal)
+		"""
                 # If definitions are different and the auths are different
                 if (stmt_object['definition'] != activity_def) and (activity.authoritative != '' and activity.authoritative != auth_name):
                     err_msg = "This ActivityID already exists, and you do not have the correct authority to create or update it."
                     raise Forbidden(err_msg)
+		"""
 
 def validate_stmt_authority(stmt, auth, auth_validated):
     if 'authority' in stmt:

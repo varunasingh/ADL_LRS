@@ -596,7 +596,7 @@ class StatementContextActivity(models.Model):
 			    break
             statementinfo.save()
         except:
-            print("EXCEPTION IN ASSIGNING COURSE")
+            print("EXCEPTION IN ASSIGNING COURSE FROM CONTEXT ACTIVITY")
 
 
 class ActivityState(models.Model):
@@ -1018,36 +1018,63 @@ class Statement(models.Model):
     def save(self, *args, **kwargs):
   	try:
 	    super(Statement, self).save(*args, **kwargs)
-	    #print("Creating the statement info")
-  	    if self.get_r_duration() == "-":
-		statementinfo = StatementInfo.objects.create\
-			(statement=self)
-	    else:
-	        statementinfo = StatementInfo.objects.create(statement=self,\
-					 duration=self.get_r_duration())
+	    try:
+	        statementinfo = StatementInfo.objects.get(statement=self)
+		print("Statement INfo already exists..")
+		
+	    except:
+		print("This is a fresh create")
+	        #print("Creating the statement info")
+  	        if self.get_r_duration() == "-":
+		    statementinfo = StatementInfo.objects.create\
+			(statement=self, timestamp=self.timestamp)
+	        else:
+	            statementinfo = StatementInfo.objects.create(statement=self,\
+			 duration=self.get_r_duration(), \
+				timestamp=self.timestamp)
 	    statementinfo.save()
 	except Exception, e:
 	    print("EXCEPTION IN CREATING STATEMENTINFO")
 	    print(e)
 
 	try:
+	    print(self.verb.get_display())
 	    if self.verb.get_display() == "experienced":
 	        activityid=self.object_activity.activity_id
 	    	#removing trailing and leading slash ("/")
 	    	activityid=activityid.strip("/")
 	    	st_elpid=activityid.rsplit('/',2)[1]
 	    	st_tincanid=activityid.rsplit('/',2)[0]
+		print(st_elpid)
+		print(st_tincanid)
 	    	#Block only sets block to statement info for blocks within its organisations. A user 
 	    elif self.verb.get_display() == "launched":
 		activityid=self.object_activity.activity_id
 		st_elpid=activityid.rsplit('/',1)[1]
 		st_tincanid=activityid.rsplit('/',1)[0]
-		#print(st_elpid)
-		#print(st_tincanid)
+		if st_elpid == '':
+		    if activityid[-1] =='/':
+			activityid=activityid[:-1]
+		        st_elpid=activityid.rsplit('/',1)[1]
+			st_tincanid=activityid.rsplit('/',1)[0]
+		print(st_elpid)
+		print(st_tincanid)
 		
+	        """
+	        ### TO Do: Write logic for answered statements.
+	        """
 	    else:
 		try:
+		    print("Getting context_parent...")
+		    #statement_json = self.full_statement
+		    if type(self.full_statement) == dict:
+			statement_json = self.full_statement
+		    elif type(self.full_statement) == str:
+		        statement_json = json.loads(self.full_statement)
+		    print(type(statement_json))
 		    context_parent = statement_json[u'context'][u'contextActivities'][u'parent']
+		    print(context_parent)
+		    print("...")
 		except:
 		    #("No context parent found in non experienced statement")
 		    pass
@@ -1055,8 +1082,9 @@ class Statement(models.Model):
 		    context=context_parent[0]['id']
 		    st_elpid=context.rsplit("/",2)[1]
 		    st_tincanid=context.rsplit("/",2)[0]
-		    #print(st_tincanid)
-		    #print(st_elpid)
+		    activityid=context
+		    print(st_tincanid)
+		    print(st_elpid)
 
 	    #Afghan Litaracy specific check and fix:
  	    try:
@@ -1083,29 +1111,37 @@ class Statement(models.Model):
                                         ).values_list('user_userid', flat=True)))[0]
 		    print("Block got from name search.")
 		except:
+		    print("Checking statement against Afghan Litaracy: " + again_st_tincanid)
 		    afghanorganisation = Course.objects.get(name="Afghan-Literacy").organisation
-		    print(again_st_tincanid)
+		    #print(again_st_tincanid)
 		    block=Block.objects.filter(name=again_st_tincanid,\
 			publisher__in=User.objects.filter(\
 			    pk__in=User_Organisations.objects.filter(\
 				organisation_organisationid=afghanorganisation\
 				    ).values_list('user_userid', flat=True)))[0]
 		    print("Block got from afghan literacy course")
-	    
-	    statementinfo.block=block;
-	    statementinfo.save()
+	    if statementinfo.block != None or statementinfo.block != "-":
+	        statementinfo.block=block;
+	        statementinfo.save()
+		print("Saved")
 	except:
 	#else:
 	    print("EXCEPTION IN ASSIGNING BLOCK")
 	try:
 	    #We have to check if parent is set. If it isn;t, 
 	    #We thenget the user's last launched activity.
-  	    statement_json=json.loads(self.full_statement)
+	    if type(self.full_statement) == dict:
+                statement_json = self.full_statement
+            elif type(self.full_statement) == str:
+                statement_json = json.loads(self.full_statement)
+
+  	    #statement_json=json.loads(self.full_statement)
 	    try:
 	    	context_parent = statement_json[u'context'][u'contextActivities'][u'parent']
+	 	print("Context Parent:" + context_parent)
 	    except:
 		
-		#print("Could not determing the context, it is not present.")
+		print("Could not determing the context, it is not present.")
 		if self.verb.get_display() == "launched": #Every launched statement SHOULD have context.
 		    print("Statement is launched. Trying to check for courses with block assigned.")
 		    organisation=User_Organisations.objects.get(\
@@ -1115,22 +1151,29 @@ class Statement(models.Model):
 			afghancourse=Course.objects.get(name="Afghan-Literacy")
 		    
                         if statementinfo.block in afghancourse.packages.all():
-                            statementinfo.course=afghancourse
-                            statementinfo.save()
+			    if statementinfo.course != None or statementinfo.course != "-":
+                                statementinfo.course=afghancourse
+                                statementinfo.save()
 			else:
 			    courses=Course.objects.filter(organisation=organisation)
                             for everycourse in courses:
                                 if statementinfo.block in everycourse.packages.all():
-                                    statementinfo.course=everycourse
-                                    statementinfo.save()
+				    if statementinfo.course != None or statementinfo.course != "-":
+                                        statementinfo.course=everycourse
+                                        statementinfo.save()
                                     break
+			    if statementinfo.block == None:
+				print("EXCEPTION IN GETTING COURSE FROM BLANK BLOCK")
 
-		    except:
+		    except: #Not part of afghan Literacy..
+			#Currently logic is to get the first course on look up. Needs to change to
+			#be more accurate.
 	            	courses=Course.objects.filter(organisation=organisation)
 		    	for everycourse in courses:
 			    if statementinfo.block in everycourse.packages.all():
-			    	statementinfo.course=everycourse
-				statementinfo.save()
+				if statementinfo.course != None or statementinfo.course != "-":
+			    	    statementinfo.course=everycourse
+				    statementinfo.save()
 			    	break
 		    """
 		    course=Course.objects.get(packages=block)
@@ -1153,14 +1196,16 @@ class Statement(models.Model):
 			try:
                             afghancourse=Course.objects.get(name="Afghan-Literacy")
                             if statementinfo.block in afghancourse.packages.all():
-                            	statementinfo.course=afghancourse
-                            	statementinfo.save()
+				if statementinfo.course != None or statementinfo.course != "-":
+                            	    statementinfo.course=afghancourse
+                            	    statementinfo.save()
                         except:
                             courses=Course.objects.filter(organisation=organisation)
                             for everycourse in courses:
                             	if statementinfo.block in everycourse.packages.all():
-                                    statementinfo.course=everycourse
-                                    statementinfo.save()
+				    if statementinfo.course != None or statementinfo.course != "-":
+                                    	statementinfo.course=everycourse
+                                    	statementinfo.save()
                                     break
 
 		  	"""
@@ -1179,31 +1224,37 @@ class Statement(models.Model):
 			        if statementinfo.block in llcourse.packages.all():
 			            print("Last Launched statement is of the same course..")
 		                    course=last_launched_statementinfo.course
-		                    statementinfo.course=course
-		                    statementinfo.save()
+				    if statementinfo.course != None or statementinfo.course != "-":
+		                        statementinfo.course=course
+		                        statementinfo.save()
 			else:
 			    try:
                                 afghancourse=Course.objects.get(name="Afghan-Literacy")
 			    except:
 				print("Afghan Literacy couse does not exist")
+				afghancourse=None
 			    if afghancourse:
                                 if statementinfo.block in afghancourse.packages.all():
-                            	    statementinfo.course=afghancourse
-                            	    statementinfo.save()
+				    if statementinfo.course != None or statementinfo.course != "-":
+                            	    	statementinfo.course=afghancourse
+                            	    	statementinfo.save()
 				else:
 				    courses=Course.objects.filter(organisation=organisation)
                                     for everycourse in courses:
                                         if statementinfo.block in everycourse.packages.all():
-                                            statementinfo.course=everycourse
-                                            statementinfo.save()
+					    if statementinfo.course != None or statementinfo.course != "-":
+                                                statementinfo.course=everycourse
+                                                statementinfo.save()
                                             break
 
 			    else:
+				print("Not part of Afghan course")
                             	courses=Course.objects.filter(organisation=organisation)
                         	for everycourse in courses:
                                     if statementinfo.block in everycourse.packages.all():
-                                	statementinfo.course=everycourse
-                                	statementinfo.save()
+				  	if statementinfo.course != None or statementinfo.course != "-":
+                                	    statementinfo.course=everycourse
+                                	    statementinfo.save()
                                 	break
 
 			    
@@ -1227,17 +1278,46 @@ class Statement(models.Model):
 	    allclasses_from_statement = statementinfo.course.allclasses.all()
 	    for allclass in allclasses_from_statement:
 		if self.user in allclass.students.all():
-		    statementinfo.allclass=allclass
-		    statementinfo.school=allclass.school
-		    statementinfo.save()
+		    if statementinfo.allclass != None or statementinfo.allclass != "-":
+		        statementinfo.allclass=allclass
+			statementinfo.save()
+		    if statementinfo.school != None or statementinfo.school != "-":
+		    	statementinfo.school=allclass.school
+		    	statementinfo.save()
 		    break
+	    # -----New Code---
+	    #If unable to get allclass and school from course, get the first org course. 
+	    """
+	    organisation=User_Organisations.objects.get(user_userid=self.user\
+		).organisation_organisationid;
+	    try:
+	        if statementinfo.school == None or statementinfo.school == "-":
+		    schools_in_org = School.objects.filter(organisation=organisation)
+		    for school in schools_in_org:
+		        statementinfo.school=school
+		        statementinfo.save()
+		        break
+		try:
+		    if statementinfo.allclass == None or statementinfo.allclass == "-":
+			allclasses_in_school=Allclass.objects.filter(school=school)
+			for allclass in allclasses_in_school:
+			    statementinfo.allclass = allclass
+			    statementinfo.save()
+			    break
+	 	except:
+		    print("EXCEPTION IN ASSIGNING CLASS OR NO CLASS FROM SCHOOL IN ORG")
+	    except:
+		print("EXCEPTION IN ASSIGNING SCHOOL OR NO SCHOOL IN ORG")
+	    """
+
 	except:
 	#else:
 	    print("EXCEPTION. Could NOT ASSIGN Class or School to Statement")
 	try:
 	    print("Assigning user to statementinfo")
-	    statementinfo.user=self.user
-	    statementinfo.save()
+	    if statementinfo.user != None or statementinfo.user != "-":
+	        statementinfo.user=self.user
+	        statementinfo.save()
 	except:
 	    print("EXCEPTION. Could NOT ASSIGN USER to Statement INFO")
 
@@ -1295,3 +1375,4 @@ class StatementInfo(models.Model):
     school = models.ForeignKey(School, null=True)
     #school = models.ManyToMany(School, null=True)
     user = models.ForeignKey(User, null=True)
+    timestamp = models.DateTimeField(default=datetime.utcnow().replace(tzinfo=utc).isoformat(), null=True)
