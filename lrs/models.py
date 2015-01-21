@@ -1036,6 +1036,18 @@ class Statement(models.Model):
 	except Exception, e:
 	    print("EXCEPTION IN CREATING STATEMENTINFO")
 	    print(e)
+	
+	try:
+            print("Assigning user to statementinfo")
+            if statementinfo.user != None or statementinfo.user != "-":
+                statementinfo.user=self.user
+                statementinfo.save()
+                print("Assigned user OK.")
+            else:
+                print("Unable to set user")
+        except:
+            print("EXCEPTION. Could NOT ASSIGN USER to Statement INFO")
+
 
 	try:
 	    print(self.verb.get_display())
@@ -1268,60 +1280,61 @@ class Statement(models.Model):
 	    	course=Course.objects.filter(id=st_courseid, tincanid=st_tincanid)[0]
             	if course:
 	    	    statementinfo.course=course
+		    statementinfo.save()
 	    
 	except:
 	    print("EXCEPTION. COULD NOT FIGURE OUT COURSE")
 	
-	try:
-	#if True:
-	    print("Trying to assign class and school to statement")
-	    allclasses_from_statement = statementinfo.course.allclasses.all()
-	    for allclass in allclasses_from_statement:
-		if self.user in allclass.students.all():
-		    if statementinfo.allclass != None or statementinfo.allclass != "-":
-		        statementinfo.allclass=allclass
-			statementinfo.save()
-		    if statementinfo.school != None or statementinfo.school != "-":
-		    	statementinfo.school=allclass.school
-		    	statementinfo.save()
-		    break
-	    # -----New Code---
-	    #If unable to get allclass and school from course, get the first org course. 
-	    """
-	    organisation=User_Organisations.objects.get(user_userid=self.user\
-		).organisation_organisationid;
-	    try:
-	        if statementinfo.school == None or statementinfo.school == "-":
-		    schools_in_org = School.objects.filter(organisation=organisation)
-		    for school in schools_in_org:
-		        statementinfo.school=school
-		        statementinfo.save()
-		        break
-		try:
-		    if statementinfo.allclass == None or statementinfo.allclass == "-":
-			allclasses_in_school=Allclass.objects.filter(school=school)
-			for allclass in allclasses_in_school:
-			    statementinfo.allclass = allclass
-			    statementinfo.save()
-			    break
-	 	except:
-		    print("EXCEPTION IN ASSIGNING CLASS OR NO CLASS FROM SCHOOL IN ORG")
-	    except:
-		print("EXCEPTION IN ASSIGNING SCHOOL OR NO SCHOOL IN ORG")
-	    """
+ 	try:
+        #if True:
+            print("Trying to assign class and school to statement")
+            allclasses_from_statement = statementinfo.course.allclasses.all()
+            for allclass in allclasses_from_statement:
+                if self.user in allclass.students.all():
+                    print("Checking class and School assignment..")
+                    if statementinfo.allclass != None or statementinfo.allclass != "-":
+                        print("Class already assigned?")
+                    else:
+                        statementinfo.allclass=allclass
+                        statementinfo.save()
+                    if statementinfo.school != None or statementinfo.school != "-":
+                        print("School already assigned?")
+                    else:
+                        statementinfo.school=allclass.school
+                        statementinfo.save()
+                    break
 
-	except:
-	#else:
-	    print("EXCEPTION. Could NOT ASSIGN Class or School to Statement")
-	try:
-	    print("Assigning user to statementinfo")
-	    if statementinfo.user != None or statementinfo.user != "-":
-	        statementinfo.user=self.user
-	        statementinfo.save()
-	except:
-	    print("EXCEPTION. Could NOT ASSIGN USER to Statement INFO")
+            # -----New Code---
+            #If unable to get allclass and school from course, get the first org course. 
+            organisation=User_Organisations.objects.get(user_userid=self.user\
+                ).organisation_organisationid;
+            try:
+                if statementinfo.school == None or statementinfo.school == "-":
+                    schools_in_org = School.objects.filter(organisation=organisation)
+                    for school in schools_in_org:
+                        statementinfo.school=school
+                        statementinfo.save()
+                        break
+                try:
+                    if statementinfo.allclass == None or statementinfo.allclass == "-":
+                        allclasses_in_school=Allclass.objects.filter(school=school)
+                        for allclass in allclasses_in_school:
+                            statementinfo.allclass = allclass
+                            statementinfo.save()
+                            break
+                except:
+                    print("EXCEPTION IN ASSIGNING CLASS OR NO CLASS FROM SCHOOL IN ORG")
+            except:
+                print("EXCEPTION IN ASSIGNING SCHOOL OR NO SCHOOL IN ORG")
 
+            if statementinfo.allclass == None or statementinfo.allclass == "-":
+                print("ERROR IN ASSIGNING CLASS")
+            if statementinfo.school == None or statementinfo.school == "-":
+                print("ERROR IN ASSIGNING SCHOOL")
 
+        except:
+        #else:
+            print("EXCEPTION. Could NOT ASSIGN Class or School to Statement")
 	     
 	#print("Assigining Course in StatementContextActivity")
 
