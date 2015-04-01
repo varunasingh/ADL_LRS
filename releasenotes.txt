@@ -1,0 +1,2 @@
+v1.3 ( April 1, 2015)
+Removed print instances in lrs/views.py and replaced them with log loggers
