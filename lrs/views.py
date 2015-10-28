@@ -463,8 +463,8 @@ def handle_request(request, more_id=None):
     try:
         r_dict = req_parse.parse(request, more_id)
         path = request.path.lower()
-	logger.info("Testing this:")
-	logger.info(r_dict)
+	print("Testing this:")
+	print(r_dict)
 
         if path.endswith('/'):
             path = path.rstrip('/')
@@ -485,6 +485,8 @@ def handle_request(request, more_id=None):
     except exceptions.Unauthorized as autherr:
         log_exception(request.path, autherr)
         r = HttpResponse(autherr, status = 401)
+	logger.info("401: ")
+	logger.info(r_dict)
         r['WWW-Authenticate'] = 'Basic realm="ADLLRS"'
         return r
     except exceptions.OauthUnauthorized as oauth_err:
@@ -492,9 +494,13 @@ def handle_request(request, more_id=None):
         return oauth_err.response
     except exceptions.Forbidden as forb:
         log_exception(request.path, forb)
+	logger.info("403:")
+	logger.info(r_dict)
         return HttpResponse(forb.message, status=403)
     except exceptions.NotFound as nf:
         log_exception(request.path, nf)
+	logger.info("404:")
+	logger.info(r_dict)
         return HttpResponse(nf.message, status=404)
     except exceptions.Conflict as c:
         log_exception(request.path, c)
@@ -504,6 +510,9 @@ def handle_request(request, more_id=None):
         return HttpResponse(pf.message, status=412)
     except Exception as err:
         log_exception(request.path, err)
+	logger.info("500: ")
+	if r_dict is not None:
+	    logger_info(r_dict)
         return HttpResponse(err.message, status=500)
 
 def log_exception(path, ex):

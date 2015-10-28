@@ -4,3 +4,5 @@ env
 build
 migrations
 .coverage
+*.old
+lrs.old/

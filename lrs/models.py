@@ -21,6 +21,8 @@ from uploadeXe.models import Package as Block, Course
 from organisation.models import User_Organisations
 from allclass.models import Allclass
 from school.models import School
+from django.db import transaction, DatabaseError
+from users.models import UserProfile
 
 ADL_LRS_STRING_KEY = 'ADL_LRS_STRING_KEY'
 
@@ -1018,13 +1020,21 @@ class Statement(models.Model):
     def save(self, *args, **kwargs):
   	try:
 	    super(Statement, self).save(*args, **kwargs)
+	    #Update and save the last assigned for user
+            try:
+                lastactivity_date = self.timestamp
+		print(lastactivity_date)
+                current_user_profile=UserProfile.objects.get(user=self.user)
+                current_user_profile.last_activity_date = lastactivity_date
+		current_user_profile.save()
+            except:
+                print("Unable to save last assigned for user : " + self.user.username)
 	    try:
 	        statementinfo = StatementInfo.objects.get(statement=self)
 		print("Statement INfo already exists..")
 		
 	    except:
 		print("This is a fresh create")
-	        #print("Creating the statement info")
   	        if self.get_r_duration() == "-":
 		    statementinfo = StatementInfo.objects.create\
 			(statement=self, timestamp=self.timestamp)
@@ -1038,27 +1048,23 @@ class Statement(models.Model):
 	    print(e)
 	
 	try:
-            print("Assigning user to statementinfo")
             if statementinfo.user != None or statementinfo.user != "-":
                 statementinfo.user=self.user
                 statementinfo.save()
-                print("Assigned user OK.")
-            else:
-                print("Unable to set user")
-        except:
-            print("EXCEPTION. Could NOT ASSIGN USER to Statement INFO")
+	    else:
+		print("Unable to set user")
+        except Exception as e:
+            print("EXCEPTION. Could NOT ASSIGN USER to Statement INFO:")
+	    print(e)
 
 
 	try:
-	    print(self.verb.get_display())
 	    if self.verb.get_display() == "experienced":
 	        activityid=self.object_activity.activity_id
 	    	#removing trailing and leading slash ("/")
 	    	activityid=activityid.strip("/")
 	    	st_elpid=activityid.rsplit('/',2)[1]
 	    	st_tincanid=activityid.rsplit('/',2)[0]
-		print(st_elpid)
-		print(st_tincanid)
 	    	#Block only sets block to statement info for blocks within its organisations. A user 
 	    elif self.verb.get_display() == "launched":
 		activityid=self.object_activity.activity_id
@@ -1069,24 +1075,18 @@ class Statement(models.Model):
 			activityid=activityid[:-1]
 		        st_elpid=activityid.rsplit('/',1)[1]
 			st_tincanid=activityid.rsplit('/',1)[0]
-		print(st_elpid)
-		print(st_tincanid)
 		
 	        """
 	        ### TO Do: Write logic for answered statements.
 	        """
 	    else:
 		try:
-		    print("Getting context_parent...")
 		    #statement_json = self.full_statement
 		    if type(self.full_statement) == dict:
 			statement_json = self.full_statement
 		    elif type(self.full_statement) == str:
 		        statement_json = json.loads(self.full_statement)
-		    print(type(statement_json))
 		    context_parent = statement_json[u'context'][u'contextActivities'][u'parent']
-		    print(context_parent)
-		    print("...")
 		except:
 		    #("No context parent found in non experienced statement")
 		    pass
@@ -1095,13 +1095,10 @@ class Statement(models.Model):
 		    st_elpid=context.rsplit("/",2)[1]
 		    st_tincanid=context.rsplit("/",2)[0]
 		    activityid=context
-		    print(st_tincanid)
-		    print(st_elpid)
 
 	    #Afghan Litaracy specific check and fix:
  	    try:
 		again_st_tincanid=activityid.rsplit('/',2)[1]
-	        #again_st_tincanid=st_tincanid.rsplit('/',1)[1]
 	    except:
 		again_st_tincanid="-"
 
@@ -1125,7 +1122,6 @@ class Statement(models.Model):
 		except:
 		    print("Checking statement against Afghan Litaracy: " + again_st_tincanid)
 		    afghanorganisation = Course.objects.get(name="Afghan-Literacy").organisation
-		    #print(again_st_tincanid)
 		    block=Block.objects.filter(name=again_st_tincanid,\
 			publisher__in=User.objects.filter(\
 			    pk__in=User_Organisations.objects.filter(\
@@ -1135,10 +1131,9 @@ class Statement(models.Model):
 	    if statementinfo.block != None or statementinfo.block != "-":
 	        statementinfo.block=block;
 	        statementinfo.save()
-		print("Saved")
-	except:
-	#else:
-	    print("EXCEPTION IN ASSIGNING BLOCK")
+	except Exception as e:
+	    print("EXCEPTION IN ASSIGNING BLOCK. It was:")
+	    print(e)
 	try:
 	    #We have to check if parent is set. If it isn;t, 
 	    #We thenget the user's last launched activity.
@@ -1285,56 +1280,56 @@ class Statement(models.Model):
 	except:
 	    print("EXCEPTION. COULD NOT FIGURE OUT COURSE")
 	
- 	try:
-        #if True:
-            print("Trying to assign class and school to statement")
-            allclasses_from_statement = statementinfo.course.allclasses.all()
-            for allclass in allclasses_from_statement:
-                if self.user in allclass.students.all():
-                    print("Checking class and School assignment..")
-                    if statementinfo.allclass != None or statementinfo.allclass != "-":
-                        print("Class already assigned?")
-                    else:
-                        statementinfo.allclass=allclass
-                        statementinfo.save()
-                    if statementinfo.school != None or statementinfo.school != "-":
-                        print("School already assigned?")
-                    else:
-                        statementinfo.school=allclass.school
-                        statementinfo.save()
-                    break
+	try:
+	#if True:
+	    print("Trying to assign class and school to statement")
+	    allclasses_from_statement = statementinfo.course.allclasses.all()
+	    for allclass in allclasses_from_statement:
+		if self.user in allclass.students.all():
+		    print("Checking class and School assignment..")
+		    if statementinfo.allclass != None or statementinfo.allclass != "-":
+		     	print("Class already assigned?")
+		    else:
+		        statementinfo.allclass=allclass
+			statementinfo.save()
+		    if statementinfo.school != None or statementinfo.school != "-":
+			print("School already assigned?")
+		    else:
+		    	statementinfo.school=allclass.school
+		    	statementinfo.save()
+		    break
 
-            # -----New Code---
-            #If unable to get allclass and school from course, get the first org course. 
-            organisation=User_Organisations.objects.get(user_userid=self.user\
-                ).organisation_organisationid;
-            try:
-                if statementinfo.school == None or statementinfo.school == "-":
-                    schools_in_org = School.objects.filter(organisation=organisation)
-                    for school in schools_in_org:
-                        statementinfo.school=school
-                        statementinfo.save()
-                        break
-                try:
-                    if statementinfo.allclass == None or statementinfo.allclass == "-":
-                        allclasses_in_school=Allclass.objects.filter(school=school)
-                        for allclass in allclasses_in_school:
-                            statementinfo.allclass = allclass
-                            statementinfo.save()
-                            break
-                except:
-                    print("EXCEPTION IN ASSIGNING CLASS OR NO CLASS FROM SCHOOL IN ORG")
-            except:
-                print("EXCEPTION IN ASSIGNING SCHOOL OR NO SCHOOL IN ORG")
+	    # -----New Code---
+	    #If unable to get allclass and school from course, get the first org course. 
+	    organisation=User_Organisations.objects.get(user_userid=self.user\
+		).organisation_organisationid;
+	    try:
+	        if statementinfo.school == None or statementinfo.school == "-":
+		    schools_in_org = School.objects.filter(organisation=organisation)
+		    for school in schools_in_org:
+		        statementinfo.school=school
+		        statementinfo.save()
+		        break
+		try:
+		    if statementinfo.allclass == None or statementinfo.allclass == "-":
+			allclasses_in_school=Allclass.objects.filter(school=school)
+			for allclass in allclasses_in_school:
+			    statementinfo.allclass = allclass
+			    statementinfo.save()
+			    break
+	 	except:
+		    print("EXCEPTION IN ASSIGNING CLASS OR NO CLASS FROM SCHOOL IN ORG")
+	    except:
+		print("EXCEPTION IN ASSIGNING SCHOOL OR NO SCHOOL IN ORG")
 
-            if statementinfo.allclass == None or statementinfo.allclass == "-":
-                print("ERROR IN ASSIGNING CLASS")
-            if statementinfo.school == None or statementinfo.school == "-":
-                print("ERROR IN ASSIGNING SCHOOL")
+	    if statementinfo.allclass == None or statementinfo.allclass == "-":
+		print("ERROR IN ASSIGNING CLASS")
+	    if statementinfo.school == None or statementinfo.school == "-":
+		print("ERROR IN ASSIGNING SCHOOL")
 
-        except:
-        #else:
-            print("EXCEPTION. Could NOT ASSIGN Class or School to Statement")
+	except:
+	#else:
+	    print("EXCEPTION. Could NOT ASSIGN Class or School to Statement")
 	     
 	#print("Assigining Course in StatementContextActivity")
 
