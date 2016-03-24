@@ -1059,42 +1059,58 @@ class Statement(models.Model):
 
 
 	try:
-	    if self.verb.get_display() == "experienced":
-	        activityid=self.object_activity.activity_id
-	    	#removing trailing and leading slash ("/")
-	    	activityid=activityid.strip("/")
-	    	st_elpid=activityid.rsplit('/',2)[1]
-	    	st_tincanid=activityid.rsplit('/',2)[0]
-	    	#Block only sets block to statement info for blocks within its organisations. A user 
-	    elif self.verb.get_display() == "launched":
-		activityid=self.object_activity.activity_id
-		st_elpid=activityid.rsplit('/',1)[1]
-		st_tincanid=activityid.rsplit('/',1)[0]
-		if st_elpid == '':
-		    if activityid[-1] =='/':
-			activityid=activityid[:-1]
-		        st_elpid=activityid.rsplit('/',1)[1]
-			st_tincanid=activityid.rsplit('/',1)[0]
+
+	    activityid = self.object_activity.activity_id
+	    st_elpid = activityid.rsplit('/')[0].rsplit(':')[1]
+	    st_tincanid = activityid.rsplit('/')[0]
+	    organisation=User_Organisations.objects.get(user_userid=self.user).organisation_organisationid;
+	    print("Checking for elpid: " + st_elpid + " and tincan id: " + st_tincanid)
+	    try:
+		block=Block.objects.filter(elpid=st_elpid, tincanid=st_tincanid, \
+                        publisher__in=User.objects.filter(\
+                            pk__in=User_Organisations.objects.filter(\
+                                organisation_organisationid=organisation\
+                                        ).values_list('user_userid', flat=True)))[0]
+		print("Got block id from activity id. Block part of user's organisation.")	
+	    except:
+
+	        if self.verb.get_display() == "experienced":
+	            activityid=self.object_activity.activity_id
+	    	    #removing trailing and leading slash ("/")
+	    	    activityid=activityid.strip("/")
+	    	    st_elpid=activityid.rsplit('/',2)[1]
+	            st_tincanid=activityid.rsplit('/',2)[0]
+	    	    #Block only sets block to statement info for blocks within its organisations. A user 
+	        elif self.verb.get_display() == "launched":
+		    activityid=self.object_activity.activity_id
+		    st_elpid=activityid.rsplit('/',1)[1]
+		    st_tincanid=activityid.rsplit('/',1)[0]
+		    if st_elpid == '':
+		        if activityid[-1] =='/':
+			    activityid=activityid[:-1]
+		            st_elpid=activityid.rsplit('/',1)[1]
+			    st_tincanid=activityid.rsplit('/',1)[0]
 		
-	        """
-	        ### TO Do: Write logic for answered statements.
-	        """
-	    else:
-		try:
-		    #statement_json = self.full_statement
-		    if type(self.full_statement) == dict:
-			statement_json = self.full_statement
-		    elif type(self.full_statement) == str:
-		        statement_json = json.loads(self.full_statement)
-		    context_parent = statement_json[u'context'][u'contextActivities'][u'parent']
-		except:
-		    #("No context parent found in non experienced statement")
-		    pass
-		else:
-		    context=context_parent[0]['id']
-		    st_elpid=context.rsplit("/",2)[1]
-		    st_tincanid=context.rsplit("/",2)[0]
-		    activityid=context
+	            """
+	            ### TO Do: Write logic for answered statements.
+	            """
+	        else:
+		    try:
+		        #statement_json = self.full_statement
+		        if type(self.full_statement) == dict:
+			    statement_json = self.full_statement
+		        elif type(self.full_statement) == str:
+		            statement_json = json.loads(self.full_statement)
+		        context_parent = statement_json[u'context'][u'contextActivities'][u'parent']
+		    except:
+		        #("No context parent found in non experienced statement")
+		        pass
+		    else:
+		        context=context_parent[0]['id']
+		        st_elpid=context.rsplit("/",2)[1]
+		        st_tincanid=context.rsplit("/",2)[0]
+		        activityid=context
+		
 
 	    #Afghan Litaracy specific check and fix:
  	    try:
