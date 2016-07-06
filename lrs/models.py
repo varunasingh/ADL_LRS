@@ -1066,7 +1066,8 @@ class Statement(models.Model):
 	    organisation=User_Organisations.objects.get(user_userid=self.user).organisation_organisationid;
 	    print("Checking for elpid: " + st_elpid + " and tincan id: " + st_tincanid)
 	    try:
-		block=Block.objects.filter(elpid=st_elpid, tincanid=st_tincanid, \
+		block=Block.objects.filter(success="YES", active = True,\
+		    elpid=st_elpid, tincanid=st_tincanid, \
                         publisher__in=User.objects.filter(\
                             pk__in=User_Organisations.objects.filter(\
                                 organisation_organisationid=organisation\
@@ -1121,7 +1122,8 @@ class Statement(models.Model):
 	    #Cannot make statements for other organisations
 	    organisation=User_Organisations.objects.get(user_userid=self.user).organisation_organisationid;
 	    try:
-	        block=Block.objects.filter(elpid=st_elpid, tincanid=st_tincanid, \
+	        block=Block.objects.filter(success="YES", active = True, \
+		    elpid=st_elpid, tincanid=st_tincanid, \
 			publisher__in=User.objects.filter(\
 			    pk__in=User_Organisations.objects.filter(\
 				organisation_organisationid=organisation\
@@ -1129,7 +1131,8 @@ class Statement(models.Model):
 		print("Block part of user's organisation.")
 	    except:
 		try:
-		    block=Block.objects.filter(name=again_st_tincanid, \
+		    block=Block.objects.filter(success="YES", active = True, \
+			name=again_st_tincanid, \
                             publisher__in=User.objects.filter(\
                                 pk__in=User_Organisations.objects.filter(\
                                     organisation_organisationid=organisation\
@@ -1138,7 +1141,8 @@ class Statement(models.Model):
 		except:
 		    print("Checking statement against Afghan Litaracy: " + again_st_tincanid)
 		    afghanorganisation = Course.objects.get(name="Afghan-Literacy").organisation
-		    block=Block.objects.filter(name=again_st_tincanid,\
+		    block=Block.objects.filter(success="YES", active = True,\
+			name=again_st_tincanid,\
 			publisher__in=User.objects.filter(\
 			    pk__in=User_Organisations.objects.filter(\
 				organisation_organisationid=afghanorganisation\
